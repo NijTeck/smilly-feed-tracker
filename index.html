@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#ff7eb3" />
+<title>Smilly · Feed Tracker</title>
+<style>
+  :root{
+    --pink:#ff7eb3; --pink-dark:#ff5e9c; --bg1:#fff1f6; --bg2:#ffe4ef;
+    --ink:#3a2e35; --muted:#9b8a93; --card:#ffffff; --good:#2bb673; --warn:#ff8a3d;
+    --shadow:0 10px 30px rgba(255,94,156,.18);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:linear-gradient(160deg,var(--bg1),var(--bg2));
+    color:var(--ink); min-height:100vh; padding:18px 16px 40px;
+    max-width:520px; margin:0 auto; user-select:none;
+  }
+  h1{font-size:22px;margin:0;display:flex;align-items:center;gap:8px;font-weight:800}
+  h1 small{font-weight:500;color:var(--muted);font-size:13px}
+  .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .gear{background:var(--card);border:none;width:42px;height:42px;border-radius:50%;
+    font-size:18px;box-shadow:var(--shadow);cursor:pointer}
+
+  /* Status / alarm banner */
+  .status{border-radius:22px;padding:18px;text-align:center;background:var(--card);
+    box-shadow:var(--shadow);margin-bottom:16px;transition:.3s}
+  .status.due{background:linear-gradient(135deg,#ff5e9c,#ff8a3d);color:#fff;animation:pulse 1.1s infinite}
+  .status.soon{background:linear-gradient(135deg,#ffb347,#ff8a3d);color:#fff}
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
+  .status .label{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  .status.due .label,.status.soon .label{color:rgba(255,255,255,.9)}
+  .countdown{font-size:40px;font-weight:800;margin:4px 0;font-variant-numeric:tabular-nums}
+  .status .sub{font-size:13px;color:var(--muted)}
+  .status.due .sub,.status.soon .sub{color:rgba(255,255,255,.95)}
+
+  /* Ounces stepper */
+  .oz{display:flex;align-items:center;justify-content:center;gap:18px;
+    background:var(--card);border-radius:22px;padding:14px;box-shadow:var(--shadow);margin-bottom:16px}
+  .oz .stepbtn{width:48px;height:48px;border-radius:50%;border:2px solid var(--pink);
+    background:#fff;color:var(--pink-dark);font-size:26px;font-weight:700;cursor:pointer}
+  .oz .stepbtn:active{background:var(--bg2)}
+  .oz .val{text-align:center;min-width:120px}
+  .oz .val b{font-size:34px;font-weight:800}
+  .oz .val span{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+
+  /* Track button */
+  .track{width:100%;border:none;border-radius:26px;padding:26px;font-size:24px;font-weight:800;
+    color:#fff;background:linear-gradient(135deg,var(--pink),var(--pink-dark));
+    box-shadow:var(--shadow);cursor:pointer;margin-bottom:18px;letter-spacing:.02em}
+  .track:active{transform:translateY(2px)}
+  .track small{display:block;font-weight:500;font-size:13px;opacity:.9;margin-top:4px}
+
+  /* Stat cards */
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px}
+  .stat{background:var(--card);border-radius:18px;padding:12px 8px;text-align:center;box-shadow:var(--shadow)}
+  .stat b{display:block;font-size:22px;font-weight:800}
+  .stat span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+
+  /* Goal bar */
+  .goal{background:var(--card);border-radius:18px;padding:14px;box-shadow:var(--shadow);margin-bottom:18px}
+  .goal .top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px}
+  .goal .top b{font-weight:800}
+  .bar{height:14px;border-radius:10px;background:var(--bg2);overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:10px;background:linear-gradient(90deg,var(--pink),var(--good));transition:width .4s}
+
+  /* History */
+  .hist h2{font-size:15px;margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
+  .hist h2 button{background:none;border:none;color:var(--pink-dark);font-size:12px;cursor:pointer}
+  .feed{background:var(--card);border-radius:14px;padding:11px 14px;margin-bottom:8px;
+    display:flex;align-items:center;gap:12px;box-shadow:0 4px 14px rgba(255,94,156,.08)}
+  .feed .time{font-weight:700;font-size:15px}
+  .feed .meta{font-size:12px;color:var(--muted)}
+  .feed .oztag{margin-left:auto;background:var(--bg2);color:var(--pink-dark);font-weight:700;
+    padding:4px 10px;border-radius:20px;font-size:13px}
+  .feed .del{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 2px}
+  .empty{text-align:center;color:var(--muted);padding:20px;font-size:14px}
+  .daydiv{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:14px 4px 6px;font-weight:700}
+
+  /* Settings modal */
+  .modal{position:fixed;inset:0;background:rgba(58,46,53,.45);display:none;align-items:flex-end;justify-content:center;z-index:50}
+  .modal.open{display:flex}
+  .sheet{background:#fff;width:100%;max-width:520px;border-radius:24px 24px 0 0;padding:22px 20px 30px}
+  .sheet h3{margin:0 0 16px}
+  .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+  .row label{font-size:15px}
+  .row label small{display:block;color:var(--muted);font-size:12px}
+  .row input{width:90px;padding:10px;border:2px solid var(--bg2);border-radius:12px;font-size:16px;text-align:center}
+  .sheet .done{width:100%;border:none;background:var(--pink-dark);color:#fff;padding:15px;border-radius:16px;font-size:17px;font-weight:700;cursor:pointer}
+  .sheet .danger{width:100%;border:none;background:none;color:#d33;padding:12px;font-size:14px;cursor:pointer;margin-top:6px}
+  .notewrap{font-size:12px;color:var(--muted);margin:2px 0 14px;text-align:center}
+  .notewrap a{color:var(--pink-dark);cursor:pointer;text-decoration:underline}
+</style>
+</head>
+<body>
+  <div id="errbox" style="display:none;background:#ffe0e0;border:1px solid #e88;color:#a00;
+    border-radius:12px;padding:10px 14px;font-size:13px;margin-bottom:14px;line-height:1.4;
+    word-break:break-word;font-family:monospace"></div>
+  <script>
+    // Surface any uncaught script error on-screen (esp. for iOS Safari debugging)
+    function showErr(msg){ var b=document.getElementById('errbox'); if(!b) return;
+      b.style.display='block'; b.textContent='⚠️ '+msg; }
+    window.addEventListener('error', function(e){
+      showErr(((e&&e.message)||'Script error')+(e&&e.lineno?(' — line '+e.lineno):''));
+    });
+    window.addEventListener('unhandledrejection', function(e){
+      showErr('Promise: '+((e&&e.reason&&e.reason.message)||e.reason||'unknown'));
+    });
+  </script>
+
+  <div class="header">
+    <h1>🍼 Smilly <small>feed tracker</small></h1>
+    <button class="gear" id="gear" title="Settings">⚙️</button>
+  </div>
+
+  <div id="persistWarn" style="display:none;background:#fff3d6;border:1px solid #ffd27a;color:#8a5a00;
+    border-radius:14px;padding:10px 14px;font-size:13px;margin-bottom:14px;line-height:1.4">
+    ⚠️ <b>Preview mode:</b> saving is disabled here, so data clears on refresh.
+    Open <b>index.html</b> in your phone's browser and it will save permanently.
+  </div>
+
+  <div class="status" id="status">
+    <div class="label">Next feed in</div>
+    <div class="countdown" id="countdown">—</div>
+    <div class="sub" id="statusSub">Tap “Track Feed” after a feeding</div>
+  </div>
+
+  <div class="oz">
+    <button class="stepbtn" id="ozMinus">−</button>
+    <div class="val"><b id="ozVal">2.0</b><span>ounces</span></div>
+    <button class="stepbtn" id="ozPlus">+</button>
+  </div>
+
+  <button class="track" id="track">
+    Track Feed
+    <small id="trackSub">logs the time + ounces now</small>
+  </button>
+
+  <div class="grid">
+    <div class="stat"><b id="sToday">0</b><span>feeds today</span></div>
+    <div class="stat"><b id="sGap">—</b><span>since last</span></div>
+    <div class="stat"><b id="sOz">0</b><span>oz today</span></div>
+  </div>
+
+  <div class="goal">
+    <div class="top"><span>Daily goal</span><b id="goalText">0 / 10 feeds</b></div>
+    <div class="bar"><i id="goalBar" style="width:0%"></i></div>
+  </div>
+
+  <div class="hist">
+    <h2>History <button id="enableNotif">🔔 Enable alerts</button></h2>
+    <div id="histList"></div>
+  </div>
+
+  <!-- Settings -->
+  <div class="modal" id="modal">
+    <div class="sheet">
+      <h3>Settings</h3>
+      <div class="row">
+        <label>Hours between feeds<small>when to alarm for the next one</small></label>
+        <input type="number" id="setInterval" step="0.25" min="0.5" max="12" />
+      </div>
+      <div class="row">
+        <label>Heads-up before feed<small>early alert, in minutes</small></label>
+        <input type="number" id="setPre" step="1" min="0" max="60" />
+      </div>
+      <div class="row">
+        <label>Daily feed goal<small>target number of feeds per day</small></label>
+        <input type="number" id="setGoal" step="1" min="1" max="20" />
+      </div>
+      <div class="row">
+        <label>Default ounces<small>starting amount on the stepper</small></label>
+        <input type="number" id="setOz" step="0.5" min="0" max="12" />
+      </div>
+      <p class="notewrap">Data is saved on this device only · <a id="exportBtn">export</a></p>
+      <button class="done" id="saveSettings">Done</button>
+      <button class="danger" id="clearAll">Clear all data</button>
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+  const KEY = "smilly.feeds.v1";
+  const CFG = "smilly.config.v1";
+
+  const defCfg = { intervalH:2.5, goal:10, defOz:2.0, preMin:5 };
+  let cfg = load(CFG, defCfg);
+  let feeds = load(KEY, []); // [{t:epochMs, oz:Number}]
+  let curOz = cfg.defOz;
+  let alarmFired = false;     // fired the "feed now" alarm for current cycle
+  let preAlarmFired = false;  // fired the 5-min-before heads-up for current cycle
+  let audioCtx = null;
+
+  // ---------- storage (localStorage when available, in-memory fallback) ----------
+  const mem = {};
+  // probe whether real persistent storage is available in this environment
+  let persistOK = false;
+  try{ const p="smilly.__probe"; localStorage.setItem(p,"1"); persistOK = localStorage.getItem(p)==="1"; localStorage.removeItem(p); }catch(e){ persistOK = false; }
+  function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return (k in mem)?mem[k]:null; } }
+  function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){ mem[k]=v; } }
+  function load(k, fallback){
+    try{ const v = JSON.parse(lsGet(k)); return v==null?fallback:v; }
+    catch(e){ return fallback; }
+  }
+  function save(){
+    try{ lsSet(KEY, JSON.stringify(feeds)); lsSet(CFG, JSON.stringify(cfg)); }
+    catch(e){ /* never let a save failure break the UI */ }
+  }
+
+  // ---------- helpers ----------
+  const $ = id => document.getElementById(id);
+  const now = () => Date.now();
+  function fmtTime(t){ return new Date(t).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}); }
+  function fmtDateKey(t){ const d=new Date(t); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+  function dayLabel(t){
+    const d=new Date(t), today=new Date(), y=new Date(); y.setDate(today.getDate()-1);
+    if(fmtDateKey(t)===fmtDateKey(today.getTime())) return "Today";
+    if(fmtDateKey(t)===fmtDateKey(y.getTime())) return "Yesterday";
+    return d.toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'});
+  }
+  function durStr(ms){
+    if(ms<0) ms=0;
+    const m = Math.floor(ms/60000), h=Math.floor(m/60), mm=m%60;
+    if(h>0) return h+"h "+String(mm).padStart(2,'0')+"m";
+    return mm+"m";
+  }
+  function lastFeed(){ return feeds.length ? feeds[feeds.length-1] : null; }
+  function feedsToday(){ const k=fmtDateKey(now()); return feeds.filter(f=>fmtDateKey(f.t)===k); }
+
+  // ---------- ounces stepper ----------
+  function renderOz(){ $('ozVal').textContent = curOz.toFixed(1); }
+  $('ozMinus').onclick = ()=>{ curOz=Math.max(0, +(curOz-0.5).toFixed(1)); renderOz(); };
+  $('ozPlus').onclick  = ()=>{ curOz=+(curOz+0.5).toFixed(1); renderOz(); };
+
+  // ---------- track a feed ----------
+  $('track').onclick = ()=>{
+    feeds.push({ t: now(), oz: curOz });
+    alarmFired = false; preAlarmFired = false;
+    curOz = cfg.defOz; renderOz();
+    save();
+    unlockAudio();           // first user gesture enables sound later
+    blip(660,.12);
+    render();
+  };
+
+  // ---------- delete ----------
+  window._del = function(t){
+    feeds = feeds.filter(f=>f.t!==t);
+    save(); render();
+  };
+
+  // ---------- render everything ----------
+  function render(){
+    const td = feedsToday();
+    $('sToday').textContent = td.length;
+    $('sOz').textContent = (td.reduce((s,f)=>s+(f.oz||0),0)).toFixed(1).replace(/\.0$/,'');
+
+    const last = lastFeed();
+    $('sGap').textContent = last ? durStr(now()-last.t) : "—";
+
+    // goal
+    const g = cfg.goal;
+    $('goalText').textContent = td.length+" / "+g+" feeds";
+    $('goalBar').style.width = Math.min(100, td.length/g*100)+"%";
+
+    renderHistory();
+    tick(); // refresh countdown immediately
+  }
+
+  function renderHistory(){
+    const wrap = $('histList');
+    if(!feeds.length){ wrap.innerHTML = '<div class="empty">No feeds logged yet.<br>Tap “Track Feed” after the next feeding. 💛</div>'; return; }
+    const list = feeds.slice().reverse();
+    let html = '', lastDay = '';
+    for(let i=0;i<list.length;i++){
+      const f = list[i];
+      const dl = dayLabel(f.t);
+      if(dl!==lastDay){ html += '<div class="daydiv">'+dl+'</div>'; lastDay=dl; }
+      // gap to the previous (older) feed
+      const older = list[i+1];
+      let gap = '';
+      if(older && fmtDateKey(older.t)===fmtDateKey(f.t)) gap = durStr(f.t-older.t)+' after prev';
+      const oz = (f.oz!=null && f.oz>0) ? '<span class="oztag">'+(+f.oz).toFixed(1).replace(/\.0$/,'')+' oz</span>' : '';
+      html += '<div class="feed"><div><div class="time">'+fmtTime(f.t)+'</div>'+
+              (gap?'<div class="meta">'+gap+'</div>':'')+'</div>'+oz+
+              '<button class="del" onclick="_del('+f.t+')">✕</button></div>';
+    }
+    wrap.innerHTML = html;
+  }
+
+  // ---------- countdown / alarm ----------
+  function tick(){
+    const PRE_MS = (cfg.preMin||0)*60000; // heads-up window before the next feed is due
+    const last = lastFeed();
+    const st = $('status'), cd = $('countdown'), sub = $('statusSub');
+    if(!last){
+      st.classList.remove('due','soon'); cd.textContent='—';
+      sub.textContent='Tap “Track Feed” after a feeding'; return;
+    }
+    const due = last.t + cfg.intervalH*3600000;
+    const remain = due - now();
+    if(remain > PRE_MS){
+      // plenty of time left
+      st.classList.remove('due','soon');
+      cd.textContent = durStr(remain);
+      sub.textContent = 'Last feed '+fmtTime(last.t)+' · due '+fmtTime(due);
+    } else if(remain > 0){
+      // within the last 5 minutes — heads-up
+      st.classList.remove('due'); st.classList.add('soon');
+      cd.textContent = durStr(remain);
+      sub.textContent = 'Almost time · due '+fmtTime(due);
+      if(!preAlarmFired){ preAlarmFired = true; firePreAlarm(last, due); }
+    } else {
+      // due now / overdue
+      st.classList.remove('soon'); st.classList.add('due');
+      cd.textContent = '🍼 Feed now';
+      sub.textContent = 'Due '+durStr(-remain)+' ago · last feed '+fmtTime(last.t);
+      if(!alarmFired){ alarmFired = true; fireAlarm(last); }
+    }
+  }
+  setInterval(tick, 1000);
+
+  function firePreAlarm(last, due){
+    blip(740,.14); setTimeout(()=>blip(740,.14),220);
+    if(navigator.vibrate) navigator.vibrate([120,80,120]);
+    if("Notification" in window && Notification.permission==="granted"){
+      try{ new Notification("⏳ "+cfg.preMin+" min until next feed", { body:"Next feed due "+fmtTime(due)+" — get ready 🍼", tag:"smilly-pre" }); }catch(e){}
+    }
+  }
+
+  function fireAlarm(last){
+    // sound
+    blip(880,.18); setTimeout(()=>blip(660,.18),250); setTimeout(()=>blip(880,.25),500);
+    // vibrate
+    if(navigator.vibrate) navigator.vibrate([200,100,200,100,300]);
+    // notification
+    if("Notification" in window && Notification.permission==="granted"){
+      try{ new Notification("🍼 Time for the next feed", { body:"It's been "+cfg.intervalH+"h since "+fmtTime(last.t), tag:"smilly-feed" }); }catch(e){}
+    }
+  }
+
+  // ---------- sound (WebAudio, no files) ----------
+  function unlockAudio(){
+    if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+    if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
+  }
+  function blip(freq, dur){
+    if(!audioCtx) return;
+    try{
+      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+      o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(audioCtx.destination);
+      g.gain.setValueAtTime(.0001,audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(.3,audioCtx.currentTime+.02);
+      g.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+dur);
+      o.start(); o.stop(audioCtx.currentTime+dur+.02);
+    }catch(e){}
+  }
+
+  // ---------- notifications enable ----------
+  $('enableNotif').onclick = ()=>{
+    unlockAudio();
+    if(!("Notification" in window)){ alert("This browser can't show notifications, but the on-screen alarm + sound still work."); return; }
+    Notification.requestPermission().then(p=>{
+      $('enableNotif').textContent = p==='granted' ? '🔔 Alerts on' : '🔕 Alerts blocked';
+    });
+  };
+  if("Notification" in window && Notification.permission==='granted') $('enableNotif').textContent='🔔 Alerts on';
+
+  // ---------- settings ----------
+  const modal=$('modal');
+  $('gear').onclick = ()=>{
+    $('setInterval').value=cfg.intervalH; $('setGoal').value=cfg.goal; $('setOz').value=cfg.defOz; $('setPre').value=cfg.preMin;
+    modal.classList.add('open');
+  };
+  $('saveSettings').onclick = ()=>{
+    cfg.intervalH = clamp(parseFloat($('setInterval').value), .5, 24, 2.5);
+    cfg.goal      = clamp(parseInt($('setGoal').value), 1, 40, 10);
+    cfg.defOz     = clamp(parseFloat($('setOz').value), 0, 16, 2);
+    cfg.preMin    = clamp(parseInt($('setPre').value), 0, 120, 5);
+    curOz = cfg.defOz; renderOz();
+    alarmFired=false; preAlarmFired=false; save(); modal.classList.remove('open'); render();
+  };
+  modal.onclick = e=>{ if(e.target===modal) modal.classList.remove('open'); };
+  function clamp(v,min,max,def){ if(isNaN(v)) return def; return Math.min(max,Math.max(min,v)); }
+
+  $('clearAll').onclick = ()=>{
+    if(confirm("Delete ALL feed history? This can't be undone.")){
+      feeds=[]; save(); modal.classList.remove('open'); render();
+    }
+  };
+  $('exportBtn').onclick = ()=>{
+    const rows = ["date,time,ounces"].concat(feeds.map(f=>{
+      const d=new Date(f.t); return d.toLocaleDateString()+","+fmtTime(f.t)+","+(f.oz||0);
+    }));
+    const blob = new Blob([rows.join("\n")], {type:"text/csv"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download="smilly-feeds.csv"; a.click();
+  };
+
+  // ---------- go ----------
+  if(!persistOK) $('persistWarn').style.display='block';
+  renderOz();
+  render();
+})();
+</script>
+</body>
+</html>
