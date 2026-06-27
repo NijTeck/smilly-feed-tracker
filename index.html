@@ -53,6 +53,9 @@
     box-shadow:var(--shadow);cursor:pointer;margin-bottom:18px;letter-spacing:.02em}
   .track:active{transform:translateY(2px)}
   .track small{display:block;font-weight:500;font-size:13px;opacity:.9;margin-top:4px}
+  .ghost{display:block;width:100%;background:none;border:none;color:var(--pink-dark);
+    font-size:14px;font-weight:600;padding:0 0 18px;cursor:pointer}
+  .ghost:active{opacity:.6}
 
   /* Stat cards */
   .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px}
@@ -89,6 +92,7 @@
   .row label{font-size:15px}
   .row label small{display:block;color:var(--muted);font-size:12px}
   .row input{width:90px;padding:10px;border:2px solid var(--bg2);border-radius:12px;font-size:16px;text-align:center}
+  .row input[type=datetime-local]{width:auto;min-width:175px;text-align:left}
   .sheet .done{width:100%;border:none;background:var(--pink-dark);color:#fff;padding:15px;border-radius:16px;font-size:17px;font-weight:700;cursor:pointer}
   .sheet .danger{width:100%;border:none;background:none;color:#d33;padding:12px;font-size:14px;cursor:pointer;margin-top:6px}
   .notewrap{font-size:12px;color:var(--muted);margin:2px 0 14px;text-align:center}
@@ -138,6 +142,7 @@
     Track Feed
     <small id="trackSub">logs the time + ounces now</small>
   </button>
+  <button class="ghost" id="addPast">＋ Add a missed feed</button>
 
   <div class="grid">
     <div class="stat"><b id="sToday">0</b><span>feeds today</span></div>
@@ -178,6 +183,23 @@
       <p class="notewrap">Data is saved on this device only · <a id="exportBtn">export</a></p>
       <button class="done" id="saveSettings">Done</button>
       <button class="danger" id="clearAll">Clear all data</button>
+    </div>
+  </div>
+
+  <!-- Add a missed feed -->
+  <div class="modal" id="addModal">
+    <div class="sheet">
+      <h3>Add a missed feed</h3>
+      <div class="row">
+        <label>When<small>date &amp; time it happened</small></label>
+        <input type="datetime-local" id="addWhen" />
+      </div>
+      <div class="row">
+        <label>Ounces<small>amount fed</small></label>
+        <input type="number" id="addOz" step="0.5" min="0" max="16" />
+      </div>
+      <button class="done" id="addSave">Add feed</button>
+      <button class="danger" id="addCancel" style="color:var(--muted)">Cancel</button>
     </div>
   </div>
 
@@ -228,6 +250,8 @@
     if(h>0) return h+"h "+String(mm).padStart(2,'0')+"m";
     return mm+"m";
   }
+  function toLocalInput(d){ const p=n=>String(n).padStart(2,'0');
+    return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes()); }
   function lastFeed(){ return feeds.length ? feeds[feeds.length-1] : null; }
   function feedsToday(){ const k=fmtDateKey(now()); return feeds.filter(f=>fmtDateKey(f.t)===k); }
 
@@ -399,6 +423,27 @@
     const blob = new Blob([rows.join("\n")], {type:"text/csv"});
     const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
     a.download="smilly-feeds.csv"; a.click();
+  };
+
+  // ---------- add a missed feed ----------
+  const addModal=$('addModal');
+  $('addPast').onclick = ()=>{
+    $('addWhen').value = toLocalInput(new Date());
+    $('addOz').value = cfg.defOz;
+    addModal.classList.add('open');
+  };
+  $('addCancel').onclick = ()=>addModal.classList.remove('open');
+  addModal.onclick = e=>{ if(e.target===addModal) addModal.classList.remove('open'); };
+  $('addSave').onclick = ()=>{
+    const v = $('addWhen').value;
+    const t = v ? new Date(v).getTime() : NaN;        // datetime-local parses as local time
+    if(isNaN(t)){ alert("Please pick a valid date & time."); return; }
+    let oz = parseFloat($('addOz').value); if(isNaN(oz)||oz<0) oz=0;
+    feeds.push({ t:t, oz:+oz.toFixed(1) });
+    feeds.sort((a,b)=>a.t-b.t);                        // keep history in order
+    if(feeds[feeds.length-1].t===t){ alarmFired=false; preAlarmFired=false; } // only reset alarm if it's the newest feed
+    unlockAudio();
+    save(); addModal.classList.remove('open'); render();
   };
 
   // ---------- go ----------
